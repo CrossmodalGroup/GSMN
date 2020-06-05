@@ -204,7 +204,7 @@ def evalrank(model_path, data_path=None, split='dev', fold5=False):
     opt.vocab_size = len(vocab)
 
     # construct model
-    model = SCAN(opt)
+    model = GSMN(opt)
 
     # load model state
     model.load_state_dict(checkpoint['model'])
