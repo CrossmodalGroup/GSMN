@@ -1,3 +1,4 @@
+The text feature and pretrained model will be uploaded later.
 ## Introduction
 This is Graph Structured Network for Image-Text Matching, source code of [GSMN](https://arxiv.org/abs/2004.00277) ([project page](https://github.com/CrossmodalGroup/GSMN)). The paper is accepted by CVPR2020. It is built on top of the [SCAN](https://github.com/kuanghuei/SCAN) in PyTorch.
 
