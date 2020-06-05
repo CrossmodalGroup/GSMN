@@ -16,7 +16,7 @@ Download the dataset files. We use the dataset files created by SCAN [Kuang-Huei
 ## Training
 
 ```bash
-python train.py --data_path "$DATA_PATH" --data_name f30k_precomp --vocab_path "$VOCAB_PATH" --logger_name runs/log --model_name "$MODEL_PATH"
+python train.py --data_path "$DATA_PATH" --data_name f30k_precomp --vocab_path "$VOCAB_PATH" --logger_name runs/log --model_name "$MODEL_PATH" --bi_gru
 ```
 
 Arguments used to train Flickr30K models and MSCOCO models are similar with those of SCAN:
