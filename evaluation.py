@@ -153,35 +153,6 @@ def encode_data(model, data_loader, log_step=10, logging=print):
     return img_embs, cap_embs, all_bbx, all_depends, cap_lens
 
 
-def find_t2i_index(imlen, sims):
-    # t2i
-    npts = imlen
-    ranks = np.zeros(5 * npts)
-    top1 = np.zeros(5 * npts)
-    result = np.zeros((5 * npts, 10))
-
-    # --> (5N(caption), N(image))
-    sims = sims.T
-    for index in range(npts):
-        for i in range(5):
-            inds = np.argsort(sims[5 * index + i])[::-1]
-            result[5 * index + i, :] = inds[:10]
-
-    np.savetxt('flickr30_GSMN_t2i_result.txt', result, fmt='%d')
-
-
-def find_i2t_index(imlen, sims):
-    # i2t
-    npts = imlen
-    ranks = np.zeros(5 * npts)
-    top1 = np.zeros(5 * npts)
-    result = np.zeros((npts, 10))
-
-    for index in range(npts):
-        inds = np.argsort(sims[index])[::-1]
-        result[index, :] = inds[:10]
-    np.savetxt('flickr30_GSMN_i2t_result.txt', result, fmt='%d')
-
 
 def evalrank(model_path, data_path=None, split='dev', fold5=False):
     """
@@ -193,7 +164,6 @@ def evalrank(model_path, data_path=None, split='dev', fold5=False):
     checkpoint = torch.load(model_path)
     opt = checkpoint['opt']
     print(opt)
-    opt.method = '80'
     if data_path is not None:
         opt.data_path = data_path
         opt.vocab_path = '/media/ubuntu/data/chunxiao/vocab/'
@@ -227,10 +197,6 @@ def evalrank(model_path, data_path=None, split='dev', fold5=False):
                            depends, cap_lens, opt, shard_size=80)
         end = time.time()
         print("calculate similarity time:", end - start)
-
-        # Add
-        find_t2i_index(img_embs.shape[0], sims)
-        find_i2t_index(img_embs.shape[0], sims)
 
         r, rt = i2t(img_embs, sims, return_ranks=True)
         ri, rti = t2i(img_embs, sims, return_ranks=True)
@@ -285,7 +251,7 @@ def evalrank(model_path, data_path=None, split='dev', fold5=False):
     torch.save({'rt': rt, 'rti': rti}, 'ranks.pth.tar')
 
 
-def evalvisual(model_path, data_path=None, split='dev', fold5=False):
+def evalstack(model_path, data_path=None, split='dev', fold5=False, is_sparse=False):
     """
     Evaluate a trained model on either dev or test. If `fold5=True`, 5 fold
     cross-validation is done (only for MSCOCO). Otherwise, the full data is
@@ -294,85 +260,11 @@ def evalvisual(model_path, data_path=None, split='dev', fold5=False):
     # load model and options
     checkpoint = torch.load(model_path)
     opt = checkpoint['opt']
-    print(opt)
-    if data_path is not None:
-        opt.data_path = data_path
-
-    opt.vocab_path = "/media/ubuntu/data/chunxiao/vocab/"
-
-    # load vocabulary used by the model
-    vocab = deserialize_vocab(os.path.join(
-        opt.vocab_path, '%s_vocab.json' % opt.data_name))
-    opt.vocab_size = len(vocab)
-
-    # construct model
-    model = SCAN(opt)
-
-    # load model state
-    model.load_state_dict(checkpoint['model'])
-
-    print('Loading dataset')
-    data_loader = get_test_loader(split, opt.data_name, vocab,
-                                  opt.batch_size, opt.workers, opt)
-
-    dpath = os.path.join(opt.data_path, opt.data_name)
-    dset = PrecompDataset(dpath, 'test', vocab)
-
-    ###############################
-    image, caption, bboxes, depend, index, img_id = dset[796]
-    caption = caption.long()   # Convert torch Tensor into long
-
-    image_b = image[np.newaxis, :, :]
-    caption_b = caption[np.newaxis, :]
-    caption_len = [len(caption)]
-    bboxes = bboxes[np.newaxis, :]
-
-    print('Computing results...')
-
-    img_emb, cap_emb, cap_len = model.forward_emb(
-        image_b, caption_b, caption_len, volatile=True)
-
-    sim = model.forward_sim(img_emb, cap_emb, bboxes, depend, cap_len)
-
-'''
-    if not fold5:
-        # no cross-validation, full evaluation
-        # img_embs = np.array([img_embs[i] for i in range(0, len(img_embs), 5)])
-        start = time.time()
-        # sims = shard_xattn(model, img_embs, cap_embs, bboxes, depend, cap_lens, opt, shard_size=80)
-
-        im = Variable(torch.from_numpy(img_embs.unsqueeze(0)), volatile=True).cuda().float()
-        s = Variable(torch.from_numpy(cap_embs.unsqueeze(0)), volatile=True).cuda().float()
-        l = cap_len
-        bbx = Variable(torch.from_numpy(bboxes), volatile=True).cuda().float()
-        dep = depend
-        
-        sim = model.forward_sim(im, s, bbx, dep, l)
-
-        end = time.time()
-        print("calculate similarity time:", end-start)
-'''
-# Add
-# find_t2i_index(img_embs.shape[0], sims)
-# find_i2t_index(img_embs.shape[0], sims)
-
-
-def evalstack(model_path, data_path=None, split='dev', fold5=False, isfully=False):
-    """
-    Evaluate a trained model on either dev or test. If `fold5=True`, 5 fold
-    cross-validation is done (only for MSCOCO). Otherwise, the full data is
-    used for evaluation.
-    """
-    # load model and options
-    checkpoint = torch.load(model_path)
-    opt = checkpoint['opt']
-    opt.fully = isfully
+    opt.is_sparse = is_sparse
     print(opt)
     if data_path is not None:
         opt.data_path = data_path
         opt.vocab_path = "/media/ubuntu/data/chunxiao/vocab"
-        # opt.vocab_path = ".."+ data_path + "/vocab/"
-        # opt.vocab_path = "/userhome/coco_precomp/"
 
     # load vocabulary used by the model
     vocab = deserialize_vocab(os.path.join(
@@ -380,7 +272,7 @@ def evalstack(model_path, data_path=None, split='dev', fold5=False, isfully=Fals
     opt.vocab_size = len(vocab)
 
     # construct model
-    model = SCAN(opt)
+    model = GSMN(opt)
 
     # load model state
     model.load_state_dict(checkpoint['model'])
@@ -404,9 +296,6 @@ def evalstack(model_path, data_path=None, split='dev', fold5=False, isfully=Fals
         end = time.time()
         print("calculate similarity time:", end - start)
 
-        # Add
-        # find_t2i_index(img_embs.shape[0], sims)
-        # find_i2t_index(img_embs.shape[0], sims)
         return sims
 
     else:
