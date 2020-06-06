@@ -210,20 +210,15 @@ class TextualGraph(nn.Module):
         return tnode_mvector
 
     def structure_level_matching(self, tnode_mvector, intra_relation, depends, opt):
-        # (batch, n_region, n_region, num_block)
-        # --> (1, n_word, n_word, 1)
-        batch, n_word = tnode_mvector.size(0), tnode_mvector.size(1)
-        # intra_relation = self.intra_relation(tnode, tnode, xlambda).unsqueeze(-1)
-
         # (batch, n_word, 1, num_block)
-        # tnode_mvector = tnode_mvector.view(n_image, n_word, -1).unsqueeze(2)
         tnode_mvector = tnode_mvector.unsqueeze(2)
+        batch, n_word = tnode_mvector.size(0), tnode_mvector.size(1)
 
         if not opt.is_sparse:
             neighbor_nodes = tnode_mvector.repeat(1, 1, n_word, 1)
             neighbor_weights = intra_relation.repeat(batch, 1, 1, 1)
         else:
-            # Build adj matrix for each text query
+            # Build adjacency matrix for each text query
             # (1, n_word, n_word, 1)
             adj_mtx = self.build_sparse_graph(depends, n_word)
             adj_mtx = adj_mtx.view(n_word, n_word).unsqueeze(0).unsqueeze(-1)
@@ -233,8 +228,6 @@ class TextualGraph(nn.Module):
             neighbor_weights = Util.l2norm(adj_mtx * intra_relation, dim=2)
             neighbor_weights = neighbor_weights.repeat(batch, 1, 1, 1)
 
-        # print('neighbor_weights', type(neighbor_weights))
-        # print(neighbor_weights.shape)
         hidden_graph = self.tGNN(neighbor_nodes, neighbor_weights)
         hidden_graph = hidden_graph.view(batch * n_word, -1)
 
