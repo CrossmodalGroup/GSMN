@@ -1,4 +1,4 @@
-The text feature and pretrained model will be uploaded later.
+The pretrained model will be uploaded later.
 ## Introduction
 This is Graph Structured Network for Image-Text Matching, source code of [GSMN](https://arxiv.org/abs/2004.00277) ([project page](https://github.com/CrossmodalGroup/GSMN)). The paper is accepted by CVPR2020. It is built on top of the [SCAN](https://github.com/kuanghuei/SCAN) in PyTorch.
 
@@ -12,7 +12,7 @@ We recommended the following dependencies.
 
 
 ## Download data
-Download the dataset files. We use the dataset files created by SCAN [Kuang-Huei Lee](https://github.com/kuanghuei/SCAN). The word ids for each sentence is precomputed, and can be downloaded from [here](https://drive.google.com/open?id=1IoL1eJDQlaLDCub6zsmjDpAJDz7LjW59) (for Flickr30K and MSCOCO) 
+Download the dataset files. We use the image feature created by SCAN [Kuang-Huei Lee](https://github.com/kuanghuei/SCAN). The text feature, image bounding box and semantic dependency are precomputed, and can be downloaded from [here](https://drive.google.com/file/d/1ZVLIN7uSh3dqYAEldelyYF2ei9vicJvZ/view?usp=sharing) (for Flickr30K and MSCOCO) 
 
 ## Training
 
