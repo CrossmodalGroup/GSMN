@@ -12,7 +12,7 @@ We recommended the following dependencies.
 
 
 ## Download data
-Download the dataset files. We use the image feature created by SCAN [Kuang-Huei Lee](https://github.com/kuanghuei/SCAN). The text feature, image bounding box and semantic dependency are precomputed, and can be downloaded from [here](https://drive.google.com/file/d/1ZVLIN7uSh3dqYAEldelyYF2ei9vicJvZ/view?usp=sharing) (for Flickr30K and MSCOCO) 
+Download the dataset files. We use the image feature created by SCAN, downloaded [here](https://github.com/kuanghuei/SCAN). The text feature, image bounding box and semantic dependency are precomputed, and can be downloaded from [here](https://drive.google.com/file/d/1ZVLIN7uSh3dqYAEldelyYF2ei9vicJvZ/view?usp=sharing) (for Flickr30K and MSCOCO) 
 
 ## Training
 
@@ -27,14 +27,14 @@ For Flickr30K:
 | Method      | Arguments |
 | :---------: | :-------: |
 |  GSMN-dense   | `--max_violation --lambda_softmax=20 --num_epoches=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 `|
-|  GSMN-sparse    | `--max_violation --lambda_softmax=20 --num_epoches=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 `|
+|  GSMN-sparse    | `--max_violation --lambda_softmax=20 --num_epoches=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 --is_sparse `| 
 
 For MSCOCO:
 
 | Method      | Arguments |
 | :---------: | :-------: |
 |  GSMN-dense   | `--max_violation --lambda_softmax=10 --num_epoches=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 `|
-|  GSMN-sparse    | `--max_violation --lambda_softmax=10 --num_epoches=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 `|
+|  GSMN-sparse    | `--max_violation --lambda_softmax=10 --num_epoches=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 --is_sparse `|
 
 ## Evaluation
 
