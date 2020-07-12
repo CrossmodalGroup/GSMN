@@ -174,7 +174,6 @@ class TextualGraphConvolution(Module):
         self.conv_weights = nn.ModuleList([nn.Linear(
             in_feat_dim, out_feat_dim // n_kernels, bias=bias) for i in range(n_kernels)])
 
-        # Parameters of the Gaussian kernels
         self.params = Parameter(torch.Tensor(n_kernels, 1))
 
         self.init_parameters()
