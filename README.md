@@ -50,6 +50,11 @@ To do cross-validation on MSCOCO, pass `fold5=True` with a model trained using
 python testall.py
 ```
 
+To ensemble sparse model and dense model, specify the model_path in test_stack.py, and run
+```bash
+python test_stack.py
+```
+
 ## Reference
 
 If you found this code useful, please cite the following paper:
