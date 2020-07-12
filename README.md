@@ -59,10 +59,11 @@ python test_stack.py
 
 If you found this code useful, please cite the following paper:
 ```
-@article{liu2020graph,
+@inproceedings{liu2020graph,
   title={Graph Structured Network for Image-Text Matching},
   author={Liu, Chunxiao and Mao, Zhendong and Zhang, Tianzhu and Xie, Hongtao and Wang, Bin and Zhang, Yongdong},
-  journal={arXiv preprint arXiv:2004.00277},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={10921--10930},
   year={2020}
 }
 ```
