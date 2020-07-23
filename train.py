@@ -58,7 +58,7 @@ def main():
                         help='Number of data loader workers.')
     parser.add_argument('--log_step', default=100, type=int,
                         help='Number of steps to print and record the log.')
-    parser.add_argument('--val_step', default=1500, type=int,
+    parser.add_argument('--val_step', default=15000, type=int,
                         help='Number of steps to run validation.')
     parser.add_argument('--logger_name', default='./runs/runX/log',
                         help='Path to save Tensorboard log.')
