@@ -1,4 +1,3 @@
-The pretrained model will be uploaded later.
 ## Introduction
 This is Graph Structured Network for Image-Text Matching, source code of [GSMN](https://arxiv.org/abs/2004.00277) ([project page](https://github.com/CrossmodalGroup/GSMN)). The paper is accepted by CVPR2020. It is built on top of the [SCAN](https://github.com/kuanghuei/SCAN) in PyTorch.
 
@@ -9,6 +8,17 @@ We recommended the following dependencies.
 * [PyTorch](http://pytorch.org/) 1.1.0
 * [NumPy](http://www.numpy.org/) (>1.12.1)
 * [TensorBoard](https://github.com/TeamHG-Memex/tensorboard_logger)
+
+## Pretrained model
+If you don't want to train from scratch, you can download the pretrained GSMN model from [here]()(for Flickr30K dense model). The performance of this pretrained single model is as follows, which is even better than results produced by our paper:
+```bash
+rsum: 481.4
+Average i2t Recall: 87.0
+Image to text: 74.4 91.1 95.4 1.0 3.4
+Average t2i Recall: 73.5
+Text to image: 54.1 79.9 86.5 1.0 9.4
+
+```
 
 
 ## Download data
