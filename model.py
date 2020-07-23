@@ -20,13 +20,28 @@ from torch.nn.utils.clip_grad import clip_grad_norm
 import numpy as np
 from collections import OrderedDict
 from graph_model import VisualGraph, TextualGraph
-from util import Util
 
 
-class EncoderImage(nn.Module):
+def l1norm(X, dim, eps=1e-8):
+    """L1-normalize columns of X
+    """
+    norm = torch.abs(X).sum(dim=dim, keepdim=True) + eps
+    X = torch.div(X, norm)
+    return X
+
+
+def l2norm(X, dim, eps=1e-8):
+    """L2-normalize columns of X
+    """
+    norm = torch.pow(X, 2).sum(dim=dim, keepdim=True).sqrt() + eps
+    X = torch.div(X, norm)
+    return X
+
+
+class EncoderImagePrecomp(nn.Module):
 
     def __init__(self, img_dim, embed_size, no_imgnorm=False):
-        super(EncoderImage, self).__init__()
+        super(EncoderImagePrecomp, self).__init__()
         self.embed_size = embed_size
         self.no_imgnorm = no_imgnorm
         self.fc = nn.Linear(img_dim, embed_size)
@@ -49,7 +64,7 @@ class EncoderImage(nn.Module):
 
         # normalize in the joint embedding space
         if not self.no_imgnorm:
-            features = Util.l2norm(features, dim=-1)
+            features = l2norm(features, dim=-1)
 
         return features
 
@@ -63,7 +78,7 @@ class EncoderImage(nn.Module):
             if name in own_state:
                 new_state[name] = param
 
-        super(EncoderImage, self).load_state_dict(new_state)
+        super(EncoderImagePrecomp, self).load_state_dict(new_state)
 
 
 # RNN Based Language Model
@@ -108,7 +123,7 @@ class EncoderText(nn.Module):
 
         # normalization in the joint embedding space
         if not self.no_txtnorm:
-            cap_emb = Util.l2norm(cap_emb, dim=-1)
+            cap_emb = l2norm(cap_emb, dim=-1)
 
         return cap_emb, cap_len
 
@@ -160,22 +175,22 @@ class GSMN(object):
     def __init__(self, opt):
         # Build Models
         self.grad_clip = opt.grad_clip
-        self.img_enc = EncoderImage(
+        self.img_enc = EncoderImagePrecomp(
             opt.img_dim, opt.embed_size, opt.no_imgnorm)
         self.txt_enc = EncoderText(opt.vocab_size, opt.word_dim,
                                    opt.embed_size, opt.num_layers,
                                    use_bi_gru=opt.bi_gru,
                                    no_txtnorm=opt.no_txtnorm)
-        self.visualGraph = VisualGraph(
-            opt.feat_dim, opt.hid_dim, opt.out_dim)
-        self.textualGraph = TextualGraph(
-            opt.feat_dim, opt.hid_dim, opt.out_dim)
+        self.i2t_match_G = VisualGraph(
+            opt.feat_dim, opt.hid_dim, opt.out_dim, dropout=.5)
+        self.t2i_match_G = TextualGraph(
+            opt.feat_dim, opt.hid_dim, opt.out_dim, dropout=.5)
 
         if torch.cuda.is_available():
             self.img_enc.cuda()
             self.txt_enc.cuda()
-            self.visualGraph.cuda()
-            self.textualGraph.cuda()
+            self.i2t_match_G.cuda()
+            self.t2i_match_G.cuda()
             cudnn.benchmark = True
 
         # Loss and Optimizer
@@ -184,8 +199,8 @@ class GSMN(object):
                                          max_violation=opt.max_violation)
         params = list(self.txt_enc.parameters())
         params += list(self.img_enc.fc.parameters())
-        params += list(self.visualGraph.parameters())
-        params += list(self.textualGraph.parameters())
+        params += list(self.i2t_match_G.parameters())
+        params += list(self.t2i_match_G.parameters())
 
         self.params = params
 
@@ -196,31 +211,31 @@ class GSMN(object):
 
     def state_dict(self):
         state_dict = [self.img_enc.state_dict(), self.txt_enc.state_dict(),
-                      self.visualGraph.state_dict(),
-                      self.textualGraph.state_dict()]
+                      self.i2t_match_G.state_dict(),
+                      self.t2i_match_G.state_dict()]
         return state_dict
 
     def load_state_dict(self, state_dict):
         self.img_enc.load_state_dict(state_dict[0])
         self.txt_enc.load_state_dict(state_dict[1])
-        self.visualGraph.load_state_dict(state_dict[2])
-        self.textualGraph.load_state_dict(state_dict[3])
+        self.i2t_match_G.load_state_dict(state_dict[2])
+        self.t2i_match_G.load_state_dict(state_dict[3])
 
     def train_start(self):
         """switch to train mode
         """
         self.img_enc.train()
         self.txt_enc.train()
-        self.visualGraph.train()
-        self.textualGraph.train()
+        self.i2t_match_G.train()
+        self.t2i_match_G.train()
 
     def val_start(self):
         """switch to evaluate mode
         """
         self.img_enc.eval()
         self.txt_enc.eval()
-        self.visualGraph.eval()
-        self.textualGraph.eval()
+        self.i2t_match_G.eval()
+        self.t2i_match_G.eval()
 
     def forward_emb(self, images, captions, lengths, volatile=False):
         """Compute the image and caption embeddings
@@ -240,9 +255,9 @@ class GSMN(object):
         return img_emb, cap_emb, cap_lens
 
     def forward_sim(self, img_emb, cap_emb, bbox, depends, cap_lens):
-        i2t_scores = self.visualGraph(
+        i2t_scores = self.i2t_match_G(
             img_emb, cap_emb, bbox, cap_lens, self.opt)
-        t2i_scores = self.textualGraph(
+        t2i_scores = self.t2i_match_G(
             img_emb, cap_emb, depends, cap_lens, self.opt)
         scores = i2t_scores + t2i_scores
         return scores

@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class VisualGraphConvolution(Module):
+class ImageQueryGraphConvolution(Module):
     '''
     Implementation of: https://arxiv.org/pdf/1611.08402.pdf where we consider
     a fixed sized neighbourhood of nodes for each feature
@@ -29,7 +29,7 @@ class VisualGraphConvolution(Module):
                  n_kernels,
                  coordinate_dim,
                  bias=False):
-        super(VisualGraphConvolution, self).__init__()
+        super(ImageQueryGraphConvolution, self).__init__()
         '''
         ## Variables:
         - in_feat_dim: dimensionality of input features
@@ -68,37 +68,37 @@ class VisualGraphConvolution(Module):
     def forward(self, neighbourhood_features, neighbourhood_pseudo_coord):
         '''
         ## Inputs:
-        - neighbourhood_features (batch_size, neighbourhood_size, neighbourhood_size, in_feat_dim)
-        - neighbourhood_pseudo_coord (batch_size, neighbourhood_size, neighbourhood_size, coordinate_dim)
+        - neighbourhood_features (batch_size, K, neighbourhood_size, in_feat_dim)
+        - neighbourhood_pseudo_coord (batch_size, K, neighbourhood_size, coordinate_dim)
         ## Returns:
-        - convolved_features (batch_size, neighbourhood_size, neighbourhood_size, out_feat_dim)
+        - convolved_features (batch_size, K, neighbourhood_size, out_feat_dim)
         '''
 
         # set parameters
         batch_size = neighbourhood_features.size(0)
-        neighbor_size = neighbourhood_features.size(1)
+        K = neighbourhood_features.size(1)
+        neighbourhood_size = neighbourhood_features.size(2)
 
         # compute pseudo coordinate kernel weights
         weights = self.get_gaussian_weights(neighbourhood_pseudo_coord)
 
-        weights = weights.view(batch_size * neighbor_size,
-                               neighbor_size, self.n_kernels)
+        weights = weights.view(
+            batch_size * K, neighbourhood_size, self.n_kernels)
 
         # compute convolved features
         neighbourhood_features = neighbourhood_features.view(
-            batch_size * neighbor_size, neighbor_size, -1)
+            batch_size * K, neighbourhood_size, -1)
         convolved_features = self.convolution(neighbourhood_features, weights)
-        convolved_features = convolved_features.view(
-            -1, neighbor_size, self.out_feat_dim)
+        convolved_features = convolved_features.view(-1, K, self.out_feat_dim)
 
         return convolved_features
 
     def get_gaussian_weights(self, pseudo_coord):
         '''
         ## Inputs:       
-        - pseudo_coord (batch_size, neighbourhood_size, neighbourhood_size, pseudo_coord_dim)
+        - pseudo_coord (batch_size, K, K, pseudo_coord_dim)
         ## Returns:
-        - weights (batch_size*neighbourhood_size, neighbourhood_size, n_kernels)
+        - weights (batch_size*K, neighbourhood_size, n_kernels)
         '''
 
         # compute rho weights
@@ -125,10 +125,10 @@ class VisualGraphConvolution(Module):
     def convolution(self, neighbourhood, weights):
         '''
         ## Inputs:
-        - neighbourhood (batch_size*neighbourhood_size, neighbourhood_size, in_feat_dim)
-        - weights (batch_size*neighbourhood_size, neighbourhood_size, n_kernels)
+        - neighbourhood (batch_size*K, neighbourhood_size, in_feat_dim)
+        - weights (batch_size*K, neighbourhood_size, n_kernels)
         ## Returns:
-        - convolved_features (batch_size*neighbourhood_size, out_feat_dim)
+        - convolved_features (batch_size*K, out_feat_dim)
         '''
         # patch operator
         weighted_neighbourhood = torch.bmm(
@@ -144,7 +144,7 @@ class VisualGraphConvolution(Module):
         return convolved_features
 
 
-class TextualGraphConvolution(Module):
+class TextQueryGraphConvolution(Module):
     '''
     Implementation of: https://arxiv.org/pdf/1611.08402.pdf where we consider
     a fixed sized neighbourhood of nodes for each feature
@@ -155,12 +155,13 @@ class TextualGraphConvolution(Module):
                  out_feat_dim,
                  n_kernels,
                  bias=False):
-        super(TextualGraphConvolution, self).__init__()
+        super(TextQueryGraphConvolution, self).__init__()
         '''
         ## Variables:
         - in_feat_dim: dimensionality of input features
         - out_feat_dim: dimensionality of output features
         - n_kernels: number of Gaussian kernels to use
+        - coordinate_dim : dimensionality of the pseudo coordinates
         - bias: whether to add a bias to convolutional kernels
         '''
 
@@ -174,6 +175,7 @@ class TextualGraphConvolution(Module):
         self.conv_weights = nn.ModuleList([nn.Linear(
             in_feat_dim, out_feat_dim // n_kernels, bias=bias) for i in range(n_kernels)])
 
+        # Parameters of the Gaussian kernels
         self.params = Parameter(torch.Tensor(n_kernels, 1))
 
         self.init_parameters()
@@ -185,27 +187,27 @@ class TextualGraphConvolution(Module):
     def forward(self, neighbourhood_features, neighbourhood_weights):
         '''
         ## Inputs:
-        - neighbourhood_features (batch_size, neighbourhood_size, neighbourhood_size, in_feat_dim)
+        - neighbourhood_features (batch_size, K, neighbourhood_size, in_feat_dim)
         - neighbourhood_weights (batch_size, n_word, n_word, 1)
         ## Returns:
-        - convolved_features (batch_size, neighbourhood_size, neighbourhood_size, out_feat_dim)
+        - convolved_features (batch_size, K, neighbourhood_size, out_feat_dim)
         '''
 
         # set parameters
         batch_size = neighbourhood_features.size(0)
-        neighbor_size = neighbourhood_features.size(1)
+        K = neighbourhood_features.size(1)
+        neighbourhood_size = neighbourhood_features.size(2)
 
         # compute neighborhood kernel weights
         weights = self.compute_weights(neighbourhood_weights)
         weights = weights.view(
-            batch_size * neighbor_size, neighbor_size, self.n_kernels)
+            batch_size * K, neighbourhood_size, self.n_kernels)
 
         # compute convolved features
         neighbourhood_features = neighbourhood_features.view(
-            batch_size * neighbor_size, neighbor_size, -1)
+            batch_size * K, neighbourhood_size, -1)
         convolved_features = self.convolution(neighbourhood_features, weights)
-        convolved_features = convolved_features.view(
-            -1, neighbor_size, self.out_feat_dim)
+        convolved_features = convolved_features.view(-1, K, self.out_feat_dim)
 
         return convolved_features
 
@@ -228,10 +230,10 @@ class TextualGraphConvolution(Module):
     def convolution(self, neighbourhood, weights):
         '''
         ## Inputs:
-        - neighbourhood (batch_size*neighbourhood_size, neighbourhood_size, in_feat_dim)
-        - weights (batch_size*neighbourhood_size, neighbourhood_size, n_kernels)
+        - neighbourhood (batch_size*K, neighbourhood_size, in_feat_dim)
+        - weights (batch_size*K, neighbourhood_size, n_kernels)
         ## Returns:
-        - convolved_features (batch_size*neighbourhood_size, out_feat_dim)
+        - convolved_features (batch_size*K, out_feat_dim)
         '''
         # patch operator
         weighted_neighbourhood = torch.bmm(

@@ -8,13 +8,17 @@
 # ---------------------------------------------------------------
 """Data provider"""
 
+
 import torch
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import os
 from PIL import Image
 import numpy as np
+import json as jsonmod
+import pandas as pd
 import json
+import nltk
 
 
 class PrecompDataset(data.Dataset):
@@ -32,26 +36,26 @@ class PrecompDataset(data.Dataset):
         with open(loc + '%s_precaps_stan.txt' % data_split, 'rb') as f:
             for line in f:
                 self.captions.append(line.strip())
-        self.length = len(self.captions)
 
         # Image features
-        self.images = np.load(loc + '%s_ims.npy' %
-                              data_split, allow_pickle=True)
-        self.bbox = np.load(loc + '%s_ims_bbx.npy' %
-                            data_split, allow_pickle=True)
-        self.sizes = np.load(loc + '%s_ims_size.npy' %
-                             data_split, allow_pickle=True)
+        self.images = np.load(loc + '%s_ims.npy' % data_split)
+        self.length = len(self.captions)
 
-        # Semantic dependency, processed by dependency_parse.py
+        self.bbox = np.load(loc + '%s_ims_bbx.npy' % data_split)
+        self.sizes = np.load(loc + '%s_ims_size.npy' % data_split)
+
         with open(loc + '%s_caps.json' % data_split) as f:
             self.depends = json.load(f)
 
-        # Data has redundancy in images, we divide by 5, 10crop doesn't
+        print('image shape', self.images.shape)
+        print('text shape', len(self.captions))
+
+        # rkiros data has redundancy in images, we divide by 5, 10crop doesn't
         if self.images.shape[0] != self.length:
             self.im_div = 5
         else:
             self.im_div = 1
-        # The development set for coco is large and so validation would be slow
+        # the development set for coco is large and so validation would be slow
         if data_split == 'dev':
             self.length = 5000
 
@@ -69,14 +73,12 @@ class PrecompDataset(data.Dataset):
         caps = map(int, caps)
 
         # Load bbox and its size
-        # bboxes = np.asarray(self.bbox[img_id])
         bboxes = self.bbox[img_id]
         imsize = self.sizes[img_id]
         # k sample
         k = image.shape[0]
         assert k == 36
 
-        # scale bounding boxes by image dimensions
         for i in range(k):
             bbox = bboxes[i]
             bbox[0] /= imsize['image_h']
@@ -103,10 +105,7 @@ def collate_fn(data):
     Returns:
         images: torch tensor of shape (batch_size, 3, 256, 256).
         targets: torch tensor of shape (batch_size, padded_length).
-        bboxes: torch tensor of shape (batch_size, 4)
-        depends: json list; whether two words are semantically dependent
         lengths: list; valid length for each padded caption.
-        ids: list; caption id.
     """
     # Sort a data list by caption length
     data.sort(key=lambda x: len(x[1]), reverse=True)

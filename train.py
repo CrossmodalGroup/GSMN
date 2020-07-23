@@ -58,11 +58,11 @@ def main():
                         help='Number of data loader workers.')
     parser.add_argument('--log_step', default=100, type=int,
                         help='Number of steps to print and record the log.')
-    parser.add_argument('--val_step', default=15000, type=int,
+    parser.add_argument('--val_step', default=1500, type=int,
                         help='Number of steps to run validation.')
     parser.add_argument('--logger_name', default='./runs/runX/log',
                         help='Path to save Tensorboard log.')
-    parser.add_argument('--model_name', default='./model',
+    parser.add_argument('--model_name', default='./runs/runX/checkpoint',
                         help='Path to save the model.')
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
@@ -81,11 +81,11 @@ def main():
     parser.add_argument('--feat_dim', default=16, type=int,
                         help='Dimensionality of the similarity embedding.')
     parser.add_argument('--num_block', default=16, type=int,
-                        help='Dimensionality of the matching vector after multi-block module.')
+                        help='Dimensionality of the similarity embedding.')
     parser.add_argument('--hid_dim', default=32, type=int,
-                        help='Dimensionality of the hidden state of graph convolution.')
+                        help='Dimensionality of the hidden state during graph convolution.')
     parser.add_argument('--out_dim', default=1, type=int,
-                        help='Dimensionality of the output of graph convolution.')
+                        help='Dimensionality of the hidden state during graph convolution.')
     parser.add_argument('--is_sparse', action='store_true',
                         help='Whether model the text as a fully connected graph.')
 
@@ -268,6 +268,22 @@ def adjust_learning_rate(opt, optimizer, epoch):
     lr = opt.learning_rate * (0.1 ** (epoch // opt.lr_update))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res
 
 
 if __name__ == '__main__':

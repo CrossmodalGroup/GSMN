@@ -74,21 +74,15 @@ def t2i(im_len, sims, npts=None, return_ranks=False):
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-    RUN_PATH1 = "./model_dense/model_best.pth.tar"  # dense model
-    RUN_PATH2 = "./model_sparse/model_best.pth.tar"  # sparse model
+    RUN_PATH1 = "./model_dense/model_best.pth.tar"  # dense
+    RUN_PATH2 = "./model_sparse/model_best.pth.tar"  # sparse
     DATA_PATH = "/media/ubuntu/data/chunxiao/"
 
-    # Test on MSCOCO
-    # sims1 = evaluation.evalstack(
-    #     RUN_PATH1, data_path=DATA_PATH, split="testall", fold5=True)
-    # sims2 = evaluation.evalstack(
-    #     RUN_PATH2, data_path=DATA_PATH, split="testall", fold5=True)
-
-    # Test on Flickr30K
-    sims1 = evaluation.evalstack(
-        RUN_PATH1, data_path=DATA_PATH, split="test", fold5=False)
-    sims2 = evaluation.evalstack(
-        RUN_PATH2, data_path=DATA_PATH, split="test", fold5=False)
+    isfold5 = True
+    sims1 = evaluation.evalrank(
+        RUN_PATH1, data_path=DATA_PATH, split="testall", fold5=isfold5)
+    sims2 = evaluation.evalrank(
+        RUN_PATH2, data_path=DATA_PATH, split="testall", fold5=isfold5)
 
     if not isfold5:
         sims = (sims1 + sims2) / 2

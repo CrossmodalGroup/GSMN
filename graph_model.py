@@ -8,7 +8,6 @@
 # -------------------------------------------------------------------------------------
 """Visual Graph and Textual Graph"""
 
-
 from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
@@ -17,10 +16,79 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers import VisualGraphConvolution
-from layers import TextualGraphConvolution
-from util import Util
+from layers import ImageQueryGraphConvolution
+from layers import TextQueryGraphConvolution
 import numpy as np
+
+
+def l1norm(X, dim, eps=1e-8):
+    """L1-normalize columns of X
+    """
+    norm = torch.abs(X).sum(dim=dim, keepdim=True) + eps
+    X = torch.div(X, norm)
+    return X
+
+
+def l2norm(X, dim, eps=1e-8):
+    """L2-normalize columns of X
+    """
+    norm = torch.pow(X, 2).sum(dim=dim, keepdim=True).sqrt() + eps
+    X = torch.div(X, norm)
+    return X
+
+
+def cosine_similarity(x1, x2, dim=1, eps=1e-8):
+    """Returns cosine similarity between x1 and x2, computed along dim."""
+    w12 = torch.sum(x1 * x2, dim)
+    w1 = torch.norm(x1, 2, dim)
+    w2 = torch.norm(x2, 2, dim)
+    return (w12 / (w1 * w2).clamp(min=eps)).squeeze()
+
+
+def inter_relations(K, Q, xlambda):
+    """
+    Q: (batch, queryL, d)
+    K: (batch, sourceL, d)
+    return (batch, queryL, sourceL)
+    """
+    batch_size, queryL = Q.size(0), Q.size(1)
+    batch_size, sourceL = K.size(0), K.size(1)
+
+    # (batch, sourceL, d)(batch, d, queryL)
+    # --> (batch, sourceL, queryL)
+    queryT = torch.transpose(Q, 1, 2)
+
+    attn = torch.bmm(K, queryT)
+    attn = nn.LeakyReLU(0.1)(attn)
+    attn = l2norm(attn, 2)
+
+    # --> (batch, queryL, sourceL)
+    attn = torch.transpose(attn, 1, 2).contiguous()
+    # --> (batch*queryL, sourceL)
+    attn = attn.view(batch_size * queryL, sourceL)
+    attn = nn.Softmax(dim=1)(attn * xlambda)
+    # --> (batch, queryL, sourceL)
+    attn = attn.view(batch_size, queryL, sourceL)
+
+    return attn
+
+
+def intra_relations(K, Q, xlambda):
+    """
+    Q: (n_context, sourceL, d)
+    K: (n_context, sourceL, d)
+    return (n_context, sourceL, sourceL)
+    """
+    batch_size, KL = K.size(0), K.size(1)
+    K = torch.transpose(K, 1, 2).contiguous()
+    attn = torch.bmm(Q, K)
+
+    attn = attn.view(batch_size * KL, KL)
+    #attn = nn.Softmax(dim=1)(attn)
+    # attn = l2norm(attn, -1)
+    attn = nn.Softmax(dim=1)(attn * xlambda)
+    attn = attn.view(batch_size, KL, KL)
+    return attn
 
 
 class VisualGraph(nn.Module):
@@ -29,60 +97,34 @@ class VisualGraph(nn.Module):
                  feat_dim,
                  hid_dim,
                  out_dim,
+                 dropout,
                  n_kernels=8):
         '''
         ## Variables:
         - feat_dim: dimensionality of input image features
         - out_dim: dimensionality of the output
+        - dropout: dropout probability
         - n_kernels : number of Gaussian kernels for convolutions
+        - bias: whether to add a bias to Gaussian kernels
         '''
 
         super(VisualGraph, self).__init__()
 
         # Set parameters
         self.feat_dim = feat_dim
-        self.hid_dim = hid_dim
         self.out_dim = out_dim
 
         # graph convolution layers
-        self.vGNN = VisualGraphConvolution(feat_dim, hid_dim, n_kernels, 2)
+        self.graph_convolution_1 = \
+            ImageQueryGraphConvolution(feat_dim, hid_dim, n_kernels, 2)
 
         # # output classifier
         self.out_1 = nn.utils.weight_norm(nn.Linear(hid_dim, hid_dim))
         self.out_2 = nn.utils.weight_norm(nn.Linear(hid_dim, out_dim))
 
-    def _compute_pseudo(self, bbox):
-        '''
-
-        Computes pseudo-coordinates from bounding box centre coordinates
-
-        ## Inputs:
-        - bb_centre (batch_size, K, coord_dim)
-        - polar (bool: polar or euclidean coordinates)
-        ## Returns:
-        - pseudo_coord (batch_size, K, K, coord_dim)
-        '''
-        bb_size = (bbox[:, :, 2:] - bbox[:, :, :2])
-        bb_centre = bbox[:, :, :2] + 0.5 * bb_size
-        K = bb_centre.size(1)
-
-        # Compute cartesian coordinates (batch_size, K, K, 2)
-        pseudo_coord = bb_centre.view(-1, K, 1, 2) - \
-            bb_centre.view(-1, 1, K, 2)
-
-        # Conver to polar coordinates
-        rho = torch.sqrt(
-            pseudo_coord[:, :, :, 0]**2 + pseudo_coord[:, :, :, 1]**2)
-        theta = torch.atan2(
-            pseudo_coord[:, :, :, 0], pseudo_coord[:, :, :, 1])
-        pseudo_coord = torch.cat(
-            (torch.unsqueeze(rho, -1), torch.unsqueeze(theta, -1)), dim=-1)
-
-        return pseudo_coord
-
     def node_level_matching(self, tnodes, vnodes, n_block, xlambda):
         # Node-level matching: find relevant nodes from another modality
-        inter_relation = Util.inter_relation(tnodes, vnodes, xlambda)
+        inter_relation = inter_relations(tnodes, vnodes, xlambda)
 
         # Compute sim with weighted context
         # (batch, n_word, n_region)
@@ -101,7 +143,7 @@ class VisualGraph(nn.Module):
         ctx_set = torch.stack(ctx_set, dim=2)
 
         # (batch, n_region, num_block)
-        vnode_mvector = Util.cosine_similarity(
+        vnode_mvector = cosine_similarity(
             qry_set, ctx_set, dim=-1)
 
         return vnode_mvector
@@ -113,7 +155,7 @@ class VisualGraph(nn.Module):
             2).repeat(1, 1, n_region, 1)
 
         # Propagate matching vector to neighbors to infer phrase correspondence
-        hidden_graph = self.vGNN(neighbor_image, pseudo_coord)
+        hidden_graph = self.graph_convolution_1(neighbor_image, pseudo_coord)
         hidden_graph = hidden_graph.view(batch * n_region, -1)
 
         # Jointly infer matching score
@@ -127,7 +169,10 @@ class VisualGraph(nn.Module):
         n_block = opt.embed_size // opt.num_block
         n_image, n_caption = images.size(0), captions.size(0)
 
-        pseudo_coord = self._compute_pseudo(bbox).cuda()
+        bb_size = (bbox[:, :, 2:] - bbox[:, :, :2])
+        bb_centre = bbox[:, :, :2] + 0.5 * bb_size
+
+        pseudo_coord = self._compute_pseudo(bb_centre).cuda()
         for i in range(n_caption):
             # Get the i-th text description
             n_word = cap_lens[i]
@@ -146,6 +191,33 @@ class VisualGraph(nn.Module):
         similarities = torch.cat(similarities, 1)
         return similarities
 
+    def _compute_pseudo(self, bb_centre):
+        '''
+
+        Computes pseudo-coordinates from bounding box centre coordinates
+
+        ## Inputs:
+        - bb_centre (batch_size, K, coord_dim)
+        - polar (bool: polar or euclidean coordinates)
+        ## Returns:
+        - pseudo_coord (batch_size, K, K, coord_dim)
+        '''
+        K = bb_centre.size(1)
+
+        # Compute cartesian coordinates (batch_size, K, K, 2)
+        pseudo_coord = bb_centre.view(-1, K, 1, 2) - \
+            bb_centre.view(-1, 1, K, 2)
+
+        # Conver to polar coordinates
+        rho = torch.sqrt(
+            pseudo_coord[:, :, :, 0]**2 + pseudo_coord[:, :, :, 1]**2)
+        theta = torch.atan2(
+            pseudo_coord[:, :, :, 0], pseudo_coord[:, :, :, 1])
+        pseudo_coord = torch.cat(
+            (torch.unsqueeze(rho, -1), torch.unsqueeze(theta, -1)), dim=-1)
+
+        return pseudo_coord
+
 
 class TextualGraph(nn.Module):
 
@@ -153,23 +225,25 @@ class TextualGraph(nn.Module):
                  feat_dim,
                  hid_dim,
                  out_dim,
+                 dropout,
                  n_kernels=8):
         '''
         ## Variables:
         - feat_dim: dimensionality of input image features
         - out_dim: dimensionality of the output
+        - dropout: dropout probability
         - n_kernels : number of Gaussian kernels for convolutions
+        - bias: whether to add a bias to Gaussian kernels
         '''
 
         super(TextualGraph, self).__init__()
 
         # Set parameters
         self.feat_dim = feat_dim
-        self.hid_dim = hid_dim
         self.out_dim = out_dim
 
-        # graph convolution layers
-        self.tGNN = TextualGraphConvolution(feat_dim, hid_dim, n_kernels, 2)
+        self.graph_convolution_3 = \
+            TextQueryGraphConvolution(feat_dim, hid_dim, n_kernels, 2)
 
         # # output classifier
         self.out_1 = nn.utils.weight_norm(nn.Linear(hid_dim, hid_dim))
@@ -187,7 +261,7 @@ class TextualGraph(nn.Module):
 
     def node_level_matching(self, vnodes, tnodes, n_block, xlambda):
 
-        inter_relation = Util.inter_relation(vnodes, tnodes, xlambda)
+        inter_relation = inter_relations(vnodes, tnodes, xlambda)
 
         # Compute sim with weighted context
         # (batch, n_region, n_word)
@@ -197,7 +271,7 @@ class TextualGraph(nn.Module):
         weightedContextT = torch.transpose(
             weightedContext, 1, 2)  # (batch, n_word, dims)
 
-        # Multo-block similarity
+        # Multi-block similarity
         # (batch, n_word, num_block, dims/num_block)
         qry_set = torch.split(tnodes, n_block, dim=2)
         ctx_set = torch.split(weightedContextT, n_block, dim=2)
@@ -205,7 +279,7 @@ class TextualGraph(nn.Module):
         qry_set = torch.stack(qry_set, dim=2)
         ctx_set = torch.stack(ctx_set, dim=2)
 
-        tnode_mvector = Util.cosine_similarity(
+        tnode_mvector = cosine_similarity(
             qry_set, ctx_set, dim=-1)  # (batch, n_word, num_block)
         return tnode_mvector
 
@@ -225,10 +299,11 @@ class TextualGraph(nn.Module):
             # (batch, n_word, n_word, num_block)
             neighbor_nodes = adj_mtx * tnode_mvector
             # (batch, n_word, n_word, 1)
-            neighbor_weights = Util.l2norm(adj_mtx * intra_relation, dim=2)
+            neighbor_weights = l2norm(adj_mtx * intra_relation, dim=2)
             neighbor_weights = neighbor_weights.repeat(batch, 1, 1, 1)
 
-        hidden_graph = self.tGNN(neighbor_nodes, neighbor_weights)
+        hidden_graph = self.graph_convolution_3(
+            neighbor_nodes, neighbor_weights)
         hidden_graph = hidden_graph.view(batch * n_word, -1)
 
         sim = self.out_2(self.out_1(hidden_graph).tanh())
@@ -248,13 +323,13 @@ class TextualGraph(nn.Module):
             # --> (n_image, n_word, d)
             cap_i_expand = cap_i.repeat(n_image, 1, 1)
             # --> compute similarity between query region and context word
-            # --> (batch, n_word, n_region)
-            words_sim = Util.intra_relation(
+            # --> (1, n_word, n_word, 1)
+            words_sim = intra_relations(
                 cap_i, cap_i, opt.lambda_softmax).unsqueeze(-1)
             nodes_sim = self.node_level_matching(
                 images, cap_i_expand, n_block, opt.lambda_softmax)
             phrase_sim = self.structure_level_matching(
-                nodes_sim, words_sim, depends, opt)
+                nodes_sim, words_sim, depends[i], opt)
 
             similarities.append(phrase_sim)
 

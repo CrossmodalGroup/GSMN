@@ -134,9 +134,6 @@ def encode_data(model, data_loader, log_step=10, logging=print):
             cap_lens[nid] = cap_len[j]
             all_depends[nid] = depends[j]
 
-        # measure accuracy and record loss
-        # model.forward_loss(img_emb, cap_emb, cap_len)
-
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -149,7 +146,7 @@ def encode_data(model, data_loader, log_step=10, logging=print):
                         i, len(data_loader), batch_time=batch_time,
                         e_log=str(model.logger)))
         del images, captions
-
+        # print('all_depends', all_depends)
     return img_embs, cap_embs, all_bbx, all_depends, cap_lens
 
 
@@ -163,6 +160,7 @@ def evalrank(model_path, data_path=None, split='dev', fold5=False):
     checkpoint = torch.load(model_path)
     opt = checkpoint['opt']
     print(opt)
+
     if data_path is not None:
         opt.data_path = data_path
         opt.vocab_path = '/media/ubuntu/data/chunxiao/vocab/'
@@ -248,73 +246,6 @@ def evalrank(model_path, data_path=None, split='dev', fold5=False):
               mean_metrics[5:10])
 
     torch.save({'rt': rt, 'rti': rti}, 'ranks.pth.tar')
-
-
-def evalstack(model_path, data_path=None, split='dev', fold5=False, is_sparse=False):
-    """
-    Evaluate a trained model on either dev or test. If `fold5=True`, 5 fold
-    cross-validation is done (only for MSCOCO). Otherwise, the full data is
-    used for evaluation.
-    """
-    # load model and options
-    checkpoint = torch.load(model_path)
-    opt = checkpoint['opt']
-    opt.is_sparse = is_sparse
-    print(opt)
-    if data_path is not None:
-        opt.data_path = data_path
-        opt.vocab_path = "/media/ubuntu/data/chunxiao/vocab"
-
-    # load vocabulary used by the model
-    vocab = deserialize_vocab(os.path.join(
-        opt.vocab_path, '%s_vocab.json' % opt.data_name))
-    opt.vocab_size = len(vocab)
-
-    # construct model
-    model = GSMN(opt)
-
-    # load model state
-    model.load_state_dict(checkpoint['model'])
-
-    print('Loading dataset')
-    data_loader = get_test_loader(split, opt.data_name, vocab,
-                                  opt.batch_size, opt.workers, opt)
-
-    print('Computing results...')
-    img_embs, cap_embs, bbox, depends, cap_lens = encode_data(
-        model, data_loader)
-    print('Images: %d, Captions: %d' %
-          (img_embs.shape[0] / 5, cap_embs.shape[0]))
-
-    if not fold5:
-        # no cross-validation, full evaluation
-        img_embs = np.array([img_embs[i] for i in range(0, len(img_embs), 5)])
-        start = time.time()
-        sims = shard_xattn(model, img_embs, cap_embs, bbox,
-                           depends, cap_lens, opt, shard_size=80)
-        end = time.time()
-        print("calculate similarity time:", end - start)
-
-        return sims
-
-    else:
-        # 5fold cross-validation, only for MSCOCO
-        sims_a = []
-        for i in range(5):
-            img_embs_shard = img_embs[i * 5000:(i + 1) * 5000:5]
-            cap_embs_shard = cap_embs[i * 5000:(i + 1) * 5000]
-            cap_lens_shard = cap_lens[i * 5000:(i + 1) * 5000]
-            bbox_shard = bbox[i * 5000:(i + 1) * 5000:5]
-            depend_shard = depends[i * 5000:(i + 1) * 5000]
-            start = time.time()
-            sims = shard_xattn(model, img_embs_shard, cap_embs_shard,
-                               bbox_shard, depend_shard, cap_lens_shard, opt, shard_size=80)
-            end = time.time()
-            print("calculate similarity time:", end - start)
-
-            sims_a.append(sims)
-
-        return sims_a
 
 
 def shard_xattn(model, images, captions, bbox, depends, caplens, opt, shard_size=128):
