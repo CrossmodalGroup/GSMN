@@ -10,7 +10,7 @@ We recommended the following dependencies.
 * [TensorBoard](https://github.com/TeamHG-Memex/tensorboard_logger)
 
 ## Pretrained model
-If you don't want to train from scratch, you can download the pretrained GSMN model from [here](https://drive.google.com/file/d/1kEi92w49Et5D2WVOv-Lc52HcpF2SPNNF/view?usp=sharing)(for Flickr30K dense model) and [here](https://drive.google.com/file/d/1vTPDToCJNLPU80K0ISXRmpSzys6-MjBT/view?usp=sharing)(for Flickr30K sparse model). The performance of this pretrained single model is as follows, which is even better than results produced by our paper:
+If you don't want to train from scratch, you can download the pretrained GSMN model from [here](https://drive.google.com/file/d/1kEi92w49Et5D2WVOv-Lc52HcpF2SPNNF/view?usp=sharing)(for Flickr30K dense model) and [here](https://drive.google.com/file/d/1vTPDToCJNLPU80K0ISXRmpSzys6-MjBT/view?usp=sharing)(for Flickr30K sparse model). The performance of this pretrained single model is as follows, in which some Recall@1 values are even better than results produced by our paper:
 ```bash
 GSMN-dense:
 rsum: 481.4
