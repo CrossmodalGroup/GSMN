@@ -10,14 +10,21 @@ We recommended the following dependencies.
 * [TensorBoard](https://github.com/TeamHG-Memex/tensorboard_logger)
 
 ## Pretrained model
-If you don't want to train from scratch, you can download the pretrained GSMN model from [here](https://drive.google.com/file/d/1kEi92w49Et5D2WVOv-Lc52HcpF2SPNNF/view?usp=sharing)(for Flickr30K dense model). The performance of this pretrained single model is as follows, which is even better than results produced by our paper:
+If you don't want to train from scratch, you can download the pretrained GSMN model from [here](https://drive.google.com/file/d/1kEi92w49Et5D2WVOv-Lc52HcpF2SPNNF/view?usp=sharing)(for Flickr30K dense model) and [here](https://drive.google.com/file/d/1vTPDToCJNLPU80K0ISXRmpSzys6-MjBT/view?usp=sharing)(for Flickr30K sparse model). The performance of this pretrained single model is as follows, which is even better than results produced by our paper:
 ```bash
+GSMN-dense:
 rsum: 481.4
 Average i2t Recall: 87.0
 Image to text: 74.4 91.1 95.4 1.0 3.4
 Average t2i Recall: 73.5
 Text to image: 54.1 79.9 86.5 1.0 9.4
 
+GSMN-sparse:
+rsum: 476.8
+Average i2t Recall: 86.5
+Image to text: 72.8 91.0 95.8 1.0 4.0
+Average t2i Recall: 72.4
+Text to image: 52.8 78.8 85.6 1.0 10.1
 ```
 
 
