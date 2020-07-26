@@ -79,10 +79,10 @@ if __name__ == '__main__':
     DATA_PATH = "/media/ubuntu/data/chunxiao/"
 
     isfold5 = True
-    sims1 = evaluation.evalrank(
-        RUN_PATH1, data_path=DATA_PATH, split="testall", fold5=isfold5)
-    sims2 = evaluation.evalrank(
-        RUN_PATH2, data_path=DATA_PATH, split="testall", fold5=isfold5)
+    sims1 = evaluation.evalstack(
+        RUN_PATH1, data_path=DATA_PATH, split="test", fold5=isfold5)
+    sims2 = evaluation.evalstack(
+        RUN_PATH2, data_path=DATA_PATH, split="test", fold5=isfold5)
 
     if not isfold5:
         sims = (sims1 + sims2) / 2
