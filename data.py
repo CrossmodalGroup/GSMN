@@ -81,10 +81,10 @@ class PrecompDataset(data.Dataset):
 
         for i in range(k):
             bbox = bboxes[i]
-            bbox[0] /= imsize['image_h']
-            bbox[1] /= imsize['image_w']
-            bbox[2] /= imsize['image_h']
-            bbox[3] /= imsize['image_w']
+            bbox[0] /= imsize['image_w']
+            bbox[1] /= imsize['image_h']
+            bbox[2] /= imsize['image_w']
+            bbox[3] /= imsize['image_h']
             bboxes[i] = bbox
 
         captions = torch.Tensor(caps)
