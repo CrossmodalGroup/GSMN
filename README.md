@@ -43,15 +43,15 @@ For Flickr30K:
 
 | Method      | Arguments |
 | :---------: | :-------: |
-|  GSMN-dense   | `--max_violation --lambda_softmax=20 --num_epoches=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 `|
-|  GSMN-sparse    | `--max_violation --lambda_softmax=20 --num_epoches=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 --is_sparse `| 
+|  GSMN-dense   | `--max_violation --lambda_softmax=20 --num_epochs=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 `|
+|  GSMN-sparse    | `--max_violation --lambda_softmax=20 --num_epochs=30 --lr_update=15 --learning_rate=.0002 --embed_size=1024 --batch_size=64 --is_sparse `| 
 
 For MSCOCO:
 
 | Method      | Arguments |
 | :---------: | :-------: |
-|  GSMN-dense   | `--max_violation --lambda_softmax=10 --num_epoches=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 `|
-|  GSMN-sparse    | `--max_violation --lambda_softmax=10 --num_epoches=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 --is_sparse `|
+|  GSMN-dense   | `--max_violation --lambda_softmax=10 --num_epochs=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 `|
+|  GSMN-sparse    | `--max_violation --lambda_softmax=10 --num_epochs=20 --lr_update=5 --learning_rate=.0005 --embed_size=1024 --batch_size=32 --is_sparse `|
 
 ## Evaluation
 
